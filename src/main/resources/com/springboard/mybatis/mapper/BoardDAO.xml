@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.springboard.board.dao.BoardDAO">
+
+	<resultMap type="FreeBoardVO" id="FreeBoardMap" autoMapping="true">
+		<id property="boNo" column="ABO_NO" />
+		<collection property="attatchList" ofType="AttatchVO" autoMapping="true" />
+	</resultMap>
+	<select id="selectBoard" parameterType="int" resultMap="FreeBoardMap">
+		SELECT
+			A.BO_NO ABO_NO, BO_TITLE, BO_WRITER, BO_IP
+			, BO_MAIL, BO_PASS, BO_CONTENT
+			, BO_DATE, BO_HIT
+			, ATT_DOWNLOAD, ATT_NO, ATT_FILENAME, ATT_FANCYSIZE, ATT_SAVENAME
+			, B.BO_NO
+		FROM FREEBOARD A LEFT OUTER JOIN ATTATCH B ON (A.BO_NO = B.BO_NO) 
+		WHERE A.BO_NO = #{boNo}
+	</select>
+	
+	<insert id="insertBoard" parameterType="FreeBoardVO">
+		<selectKey order="BEFORE" resultType="int" keyProperty="boNo">
+			SELECT FREEBOARD_SEQ.NEXTVAL
+			FROM DUAL
+		</selectKey>
+		INSERT INTO FREEBOARD (
+			BO_NO
+			, BO_TITLE
+			, BO_WRITER
+			, BO_IP
+			, BO_MAIL
+			, BO_PASS
+			, BO_CONTENT
+		) VALUES (
+			 #{boNo,jdbcType=NUMERIC}
+			, #{boTitle,jdbcType=VARCHAR}
+			, #{boWriter,jdbcType=VARCHAR}
+			, #{boIp,jdbcType=VARCHAR}
+			, #{boMail,jdbcType=VARCHAR}
+			, #{boPass,jdbcType=VARCHAR}
+			, #{boContent,jdbcType=CLOB}
+		)
+	</insert>
+	
+	<update id="incrementHit" parameterType="int">
+		UPDATE FREEBOARD
+		SET BO_HIT = BO_HIT + 1
+		WHERE BO_NO = #{boNo} 
+	</update>
+
+	<sql id="fromFrag">
+		FROM FREEBOARD
+	</sql>
+	
+	<sql id="searchFrag">
+		<trim prefix="WHERE" prefixOverrides="AND">
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prodLgu)">
+				AND PROD_LGU = #{detailCondition.prodLgu}
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prodBuyer)">
+				AND PROD_BUYER = #{detailCondition.prodBuyer}
+			</if>
+			<if test="@org.apache.commons.lang3.StringUtils@isNotBlank(detailCondition.prodName)">
+				AND INSTR(PROD_NAME, #{detailCondition.prodName}) > 0
+			</if>
+		</trim>
+	</sql>
+
+	<select id="selectTotalRecord" resultType="int" parameterType="PaginationInfo">
+		SELECT COUNT(*)
+		<include refid="fromFrag" />
+<!-- 		<include refid="searchFrag"></include> -->
+	</select>
+	
+   <select id="selectBoardList" parameterType="PaginationInfo" resultType="FreeBoardVO">
+      WITH BOARDVIEW AS (
+         SELECT A.*, ROWNUM RNUM
+         FROM (
+            SELECT
+               BO_NO   ,BO_TITLE   ,BO_WRITER
+               ,BO_DATE   ,BO_HIT, BO_MAIL, BO_IP, BO_CONTENT
+               ,(
+                  SELECT COUNT(*)
+                  FROM ATTATCH
+                  WHERE ATTATCH.BO_NO = FREEBOARD.BO_NO
+               ) FILE_CNT
+            FROM FREEBOARD
+            ORDER BY BO_NO DESC
+         )A
+      )
+      SELECT * 
+      FROM BOARDVIEW
+      <![CDATA[
+       WHERE RNUM >= #{startRow} AND RNUM <= #{endRow}
+       ]]>
+   </select>
+
+	<update id="updateBoard" parameterType="FreeBoardVO">
+		UPDATE FREEBOARD
+		SET
+			BO_CONTENT = #{boContent, jdbcType=CLOB}
+			, BO_MAIL = #{boMail, jdbcType=VARCHAR}
+		WHERE bO_NO = #{boNo}
+	</update>
+	
+	<delete id="deleteBoard" parameterType="int">
+		DELETE FROM FREEBOARD
+		WHERE BO_NO = #{boNo}
+	</delete>
+</mapper>
